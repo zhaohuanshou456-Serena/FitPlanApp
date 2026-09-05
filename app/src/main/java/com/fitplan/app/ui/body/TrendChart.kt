@@ -46,13 +46,15 @@ fun TrendChart(
         val last = points.last().first.toFloat()
         val xRange = max(last - first, 1f)
 
-        fun xOf(t: Long) = ((t - first) / xRange) * size.width
+        // 横轴按“记录顺序”均匀分布（避免时间戳相近导致重叠）
+        val n = points.size
+        fun xOf(i: Int) = if (n <= 1) size.width / 2 else (i.toFloat() / (n - 1)) * size.width
         fun yOf(v: Double) = size.height - (((v - lo) / (hi - lo)) * size.height).toFloat()
 
         // 连线
         val path = Path()
-        points.forEachIndexed { i, (t, v) ->
-            val x = xOf(t)
+        points.forEachIndexed { i, (_, v) ->
+            val x = xOf(i)
             val y = yOf(v)
             if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
         }
@@ -63,19 +65,20 @@ fun TrendChart(
         )
 
         // 数据点
-        points.forEach { (t, v) ->
+        points.forEachIndexed { i, (_, v) ->
             drawCircle(
                 color = color,
                 radius = 6f,
-                center = Offset(xOf(t), yOf(v))
+                center = Offset(xOf(i), yOf(v))
             )
         }
         // 最新值标签点
-        val lastP = points.last()
+        val lastIdx = n - 1
+        val lastV = points.last().second
         drawCircle(
             color = accentColor,
             radius = 8f,
-            center = Offset(xOf(lastP.first), yOf(lastP.second))
+            center = Offset(xOf(lastIdx), yOf(lastV))
         )
     }
 }

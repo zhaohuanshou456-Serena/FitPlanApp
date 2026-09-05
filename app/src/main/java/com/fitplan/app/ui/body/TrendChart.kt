@@ -104,8 +104,8 @@ fun TrendChart(
             val label = points[idx].second.smart()
             val paint = Paint().apply {
                 this.isAntiAlias = true
-                color = android.graphics.Color.WHITE
-                textSize = 14.sp.value
+                this.color = android.graphics.Color.WHITE
+                this.textSize = 14.sp.value
             }
             drawContext.canvas.nativeCanvas.drawText(label, x + 8f, y - 8f, paint)
         }

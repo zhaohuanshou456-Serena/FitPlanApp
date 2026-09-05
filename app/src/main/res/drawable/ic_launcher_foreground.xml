@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- horizontal bar -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,50 L66,50 L66,58 L42,58 Z" />
+    <!-- left weight plate -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,34 L38,34 L38,74 L28,74 Z" />
+    <!-- right weight plate -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,34 L80,34 L80,74 L70,74 Z" />
+</vector>

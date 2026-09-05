@@ -383,8 +383,9 @@ private fun BodyRecordDialog(
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier
+                    .fillMaxWidth()
+                    .height(320.dp)
                     .verticalScroll(rememberScrollState())
-                    .heightIn(max = 420.dp)
                     .padding(vertical = 4.dp)
             ) {
                 Text(

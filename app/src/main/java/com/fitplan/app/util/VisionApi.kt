@@ -17,8 +17,9 @@ object VisionApi {
     private const val ENDPOINT = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
 
     private const val PROMPT =
-        "这是人体分析仪/体测仪的读数照片。请读出上面的各项数值，只输出一个 JSON 对象，" +
-            "键名固定为 weight_kg, body_fat_pct, muscle_kg, bone_kg, water_pct, bmi, bmr_kcal, visceral, waist_cm；" +
+        "这是人体成分分析/体测仪的读数照片。请逐行读取每一行“标签：数值”（标签可能为：裸足身高/身高、体重、BMI、体脂、内脏脂肪、皮下脂肪、肌肉、骨量、水分、蛋白质、基础代谢）。" +
+            "只输出一个 JSON 对象，键固定为 height_cm, weight_kg, bmi, body_fat_pct, visceral, subcutaneous_pct, muscle_pct, bone_kg, water_pct, protein_pct, bmr_kcal；" +
+            "把每个“标签”对应的数值写到对应键（例如“体重 59.4kg”→weight_kg=59.4，“肌肉 38.4%”→muscle_pct=38.4）。" +
             "没有读到的字段不要包含；值为数字。不要输出任何其他文字。"
 
     /** @param imageBase64DataUrl 形如 data:image/jpeg;base64,xxx */

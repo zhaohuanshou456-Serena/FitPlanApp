@@ -13,14 +13,17 @@ data class MetricDef(
 object MetricCatalog {
 
     val metrics: List<MetricDef> = listOf(
+        MetricDef("height", "身高", "cm") { it.heightCm },
         MetricDef("weight", "体重", "kg") { it.weightKg },
+        MetricDef("bmi", "BMI", "") { it.bmi },
         MetricDef("bodyFat", "体脂率", "%") { it.bodyFatPct },
-        MetricDef("muscle", "肌肉量", "kg") { it.muscleKg },
+        MetricDef("visceralFat", "内脏脂肪", "级") { it.visceralFat },
+        MetricDef("subcutaneous", "皮下脂肪", "%") { it.subcutaneousPct },
+        MetricDef("muscle", "肌肉", "%") { it.muscleKg },
         MetricDef("bone", "骨量", "kg") { it.boneKg },
         MetricDef("water", "体水分", "%") { it.waterPct },
-        MetricDef("bmi", "BMI", "") { it.bmi },
+        MetricDef("protein", "蛋白质", "%") { it.proteinPct },
         MetricDef("bmr", "基础代谢", "kcal") { it.bmrKcal },
-        MetricDef("visceralFat", "内脏脂肪", "级") { it.visceralFat },
         MetricDef("waist", "腰围", "cm") { it.waistCm }
     )
 
@@ -28,14 +31,17 @@ object MetricCatalog {
 
     /** 读入 BodyRecord 时为某指标填值（copy 出新对象） */
     fun withValue(record: BodyRecord, key: String, value: Double?): BodyRecord = when (key) {
+        "height" -> record.copy(heightCm = value)
         "weight" -> record.copy(weightKg = value)
+        "bmi" -> record.copy(bmi = value)
         "bodyFat" -> record.copy(bodyFatPct = value)
+        "visceralFat" -> record.copy(visceralFat = value)
+        "subcutaneous" -> record.copy(subcutaneousPct = value)
         "muscle" -> record.copy(muscleKg = value)
         "bone" -> record.copy(boneKg = value)
         "water" -> record.copy(waterPct = value)
-        "bmi" -> record.copy(bmi = value)
+        "protein" -> record.copy(proteinPct = value)
         "bmr" -> record.copy(bmrKcal = value)
-        "visceralFat" -> record.copy(visceralFat = value)
         "waist" -> record.copy(waistCm = value)
         else -> record
     }

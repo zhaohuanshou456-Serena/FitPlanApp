@@ -357,9 +357,11 @@ private fun BodyRecordDialog(
                 val raw = VisionApi.recognize(key, model, dataUrl)
                 val obj = JSONObject(VisionApi.extractJson(raw))
                 val keys = mapOf(
-                    "weight_kg" to "weight", "body_fat_pct" to "bodyFat", "muscle_kg" to "muscle",
-                    "bone_kg" to "bone", "water_pct" to "water", "bmi" to "bmi",
-                    "bmr_kcal" to "bmr", "visceral" to "visceralFat", "waist_cm" to "waist"
+                    "height_cm" to "height", "weight_kg" to "weight", "bmi" to "bmi",
+                    "body_fat_pct" to "bodyFat", "visceral" to "visceralFat",
+                    "subcutaneous_pct" to "subcutaneous", "muscle_pct" to "muscle",
+                    "bone_kg" to "bone", "water_pct" to "water", "protein_pct" to "protein",
+                    "bmr_kcal" to "bmr", "waist_cm" to "waist"
                 )
                 MetricCatalog.metrics.forEachIndexed { i, md ->
                     val gk = keys.entries.firstOrNull { it.value == md.key }?.key

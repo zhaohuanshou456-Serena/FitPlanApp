@@ -119,6 +119,9 @@ object BackupManager {
                     .putOpt("bmrKcal", r.bmrKcal)
                     .putOpt("visceralFat", r.visceralFat)
                     .putOpt("waistCm", r.waistCm)
+                    .putOpt("heightCm", r.heightCm)
+                    .putOpt("proteinPct", r.proteinPct)
+                    .putOpt("subcutaneousPct", r.subcutaneousPct)
                     .putOpt("note", r.note)
             )
         }
@@ -167,6 +170,9 @@ object BackupManager {
                 bmrKcal = optDouble(o, "bmrKcal"),
                 visceralFat = optDouble(o, "visceralFat"),
                 waistCm = optDouble(o, "waistCm"),
+                heightCm = optDouble(o, "heightCm"),
+                proteinPct = optDouble(o, "proteinPct"),
+                subcutaneousPct = optDouble(o, "subcutaneousPct"),
                 note = if (o.isNull("note")) null else o.optString("note")
             )
         }

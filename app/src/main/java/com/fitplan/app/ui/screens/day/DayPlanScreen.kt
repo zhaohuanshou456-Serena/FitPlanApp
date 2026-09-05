@@ -99,7 +99,7 @@ class DayPlanViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 依据 A→B→C→D 轮换给出该天该练哪节；优先“当前方案”；无方案/该天已有安排返回 null */
     suspend fun suggest(day: Long): SessionSuggestion? =
-        repo.nextSuggestedSession(day, (application as FitPlanApp).activePlan.get())
+        repo.nextSuggestedSession(day, (getApplication() as FitPlanApp).activePlan.get())
 
     fun applySuggestion(day: Long, programId: Long, sessionId: Long) {
         viewModelScope.launch { repo.applyProgramSession(day, programId, sessionId) }

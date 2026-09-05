@@ -146,7 +146,7 @@ class ProgramViewModel(app: Application) : AndroidViewModel(app) {
             result.add(PProgramUI(p.id, p.name, p.goal, sessionUIs))
         }
         _programs.value = result
-        _activeId.value = (application as FitPlanApp).activePlan.get()
+        _activeId.value = (getApplication() as FitPlanApp).activePlan.get()
     }
 
     /** 把某节生成可直接进入引导器的动作列表（供“开始训练”用） */
@@ -215,7 +215,7 @@ class ProgramViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setActive(programId: Long) {
-        (application as FitPlanApp).activePlan.set(programId)
+        (getApplication() as FitPlanApp).activePlan.set(programId)
         _activeId.value = programId
     }
 

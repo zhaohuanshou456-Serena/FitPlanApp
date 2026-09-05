@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material3.Card
@@ -169,7 +170,11 @@ class DayPlanViewModel(app: Application) : AndroidViewModel(app) {
 }
 
 @Composable
-fun DayPlanScreen(onStartWorkout: () -> Unit = {}, vm: DayPlanViewModel = viewModel()) {
+fun DayPlanScreen(
+    onStartWorkout: () -> Unit = {},
+    onOpenHistory: () -> Unit = {},
+    vm: DayPlanViewModel = viewModel()
+) {
     val selectedDay by vm.selectedDay.collectAsStateWithLifecycle()
     val items by vm.dayItems.collectAsStateWithLifecycle()
     val message by vm.message.collectAsStateWithLifecycle()
@@ -238,6 +243,9 @@ fun DayPlanScreen(onStartWorkout: () -> Unit = {}, vm: DayPlanViewModel = viewMo
                     }
                 }
                 Spacer(Modifier.weight(1f))
+                IconButton(onClick = onOpenHistory) {
+                    Icon(Icons.Filled.History, contentDescription = "训练记录")
+                }
                 IconButton(onClick = { vm.copyLastWorkout() }) {
                     Icon(Icons.Filled.ContentCopy, contentDescription = "复制上次训练")
                 }

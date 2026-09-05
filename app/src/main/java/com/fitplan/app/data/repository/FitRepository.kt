@@ -154,5 +154,8 @@ class FitRepository(private val db: FitPlanDatabase) {
     suspend fun setsOfWorkout(sessionId: Long): List<WorkoutSet> =
         db.workoutDao().setsOf(sessionId)
 
+    fun observeWorkoutSets(sessionId: Long): Flow<List<WorkoutSet>> =
+        db.workoutDao().observeSets(sessionId)
+
     suspend fun deleteWorkout(id: Long) = db.workoutDao().deleteSession(id)
 }

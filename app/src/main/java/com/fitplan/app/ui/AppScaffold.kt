@@ -29,6 +29,7 @@ import com.fitplan.app.ui.screens.day.DayPlanScreen
 import com.fitplan.app.ui.screens.library.LibraryScreen
 import com.fitplan.app.ui.screens.settings.SettingsScreen
 import com.fitplan.app.ui.workout.WorkoutRunnerScreen
+import com.fitplan.app.ui.workout.WorkoutHistoryScreen
 
 enum class TopDest(val route: String, val label: String) {
     Day("day", "今日"),
@@ -89,7 +90,10 @@ fun AppScaffold() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(TopDest.Day.route) {
-                DayPlanScreen(onStartWorkout = { navController.navigate("workout") })
+                DayPlanScreen(
+                    onStartWorkout = { navController.navigate("workout") },
+                    onOpenHistory = { navController.navigate("history") }
+                )
             }
             composable(TopDest.Library.route) {
                 LibraryScreen(onStartWorkout = { navController.navigate("workout") })
@@ -98,6 +102,9 @@ fun AppScaffold() {
             composable(TopDest.Settings.route) { SettingsScreen() }
             composable("workout") {
                 WorkoutRunnerScreen(onExit = { navController.popBackStack() })
+            }
+            composable("history") {
+                WorkoutHistoryScreen(onBack = { navController.popBackStack() })
             }
         }
     }

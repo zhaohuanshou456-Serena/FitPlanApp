@@ -22,7 +22,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -126,10 +126,10 @@ fun BodyScreen(vm: BodyViewModel = viewModel()) {
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     MetricCatalog.metrics.forEach { m ->
-                        AssistChip(
+                        FilterChip(
+                            selected = vm.selectedMetric == m.key,
                             onClick = { vm.selectMetric(m.key) },
-                            label = { Text(m.label) },
-                            selected = vm.selectedMetric == m.key
+                            label = { Text(m.label) }
                         )
                     }
                 }

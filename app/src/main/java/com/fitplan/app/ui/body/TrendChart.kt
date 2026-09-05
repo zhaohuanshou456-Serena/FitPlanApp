@@ -21,6 +21,7 @@ fun TrendChart(
     height: Int = 200
 ) {
     val color = MaterialTheme.colorScheme.primary
+    val accentColor = MaterialTheme.colorScheme.tertiary
     val emptyColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     Canvas(modifier = modifier.fillMaxWidth().height(height.dp)) {
@@ -72,7 +73,7 @@ fun TrendChart(
         // 最新值标签点
         val lastP = points.last()
         drawCircle(
-            color = MaterialTheme.colorScheme.tertiary,
+            color = accentColor,
             radius = 8f,
             center = Offset(xOf(lastP.first), yOf(lastP.second))
         )

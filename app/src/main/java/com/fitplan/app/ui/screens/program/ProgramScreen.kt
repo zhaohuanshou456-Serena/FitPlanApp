@@ -39,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -100,6 +101,9 @@ class ProgramViewModel(app: Application) : AndroidViewModel(app) {
     private val _programs = MutableStateFlow<List<PProgramUI>>(emptyList())
     val programs: StateFlow<List<PProgramUI>> = _programs
 
+    private val _activeId = MutableStateFlow<Long?>(null)
+    val activeId: StateFlow<Long?> = _activeId
+
     val exercises = repo.observeExercises().stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
     )
@@ -142,6 +146,7 @@ class ProgramViewModel(app: Application) : AndroidViewModel(app) {
             result.add(PProgramUI(p.id, p.name, p.goal, sessionUIs))
         }
         _programs.value = result
+        _activeId.value = (application as FitPlanApp).activePlan.get()
     }
 
     /** 把某节生成可直接进入引导器的动作列表（供“开始训练”用） */
@@ -208,6 +213,18 @@ class ProgramViewModel(app: Application) : AndroidViewModel(app) {
             rebuild()
         }
     }
+
+    fun setActive(programId: Long) {
+        (application as FitPlanApp).activePlan.set(programId)
+        _activeId.value = programId
+    }
+
+    fun renameSession(sessionId: Long, newName: String) {
+        viewModelScope.launch {
+            repo.renameSession(sessionId, newName)
+            rebuild()
+        }
+    }
 }
 
 @Composable
@@ -220,7 +237,9 @@ fun ProgramScreen(onStartWorkout: () -> Unit, vm: ProgramViewModel = viewModel()
     var showNewProgram by remember { mutableStateOf(false) }
     var addSessionId by remember { mutableStateOf<Long?>(null) }
     var pickedExercise by remember { mutableStateOf<Exercise?>(null) }
+    var renameSessionId by remember { mutableStateOf<Long?>(null) }
     val exercises by vm.exercises.collectAsStateWithLifecycle()
+    val activeId by vm.activeId.collectAsStateWithLifecycle()
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -290,6 +309,18 @@ fun ProgramScreen(onStartWorkout: () -> Unit, vm: ProgramViewModel = viewModel()
                                     Text(prog.goal, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Text("A→B→C→D 轮换 · 共 ${prog.sessions.size} 节", style = MaterialTheme.typography.bodySmall)
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
+                                    if (prog.id == activeId) {
+                                        Text(
+                                            "当前训练方案",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    } else {
+                                        OutlinedButton(onClick = { vm.setActive(prog.id) }) { Text("设为当前") }
+                                    }
+                                }
                             }
                         }
                     }
@@ -302,6 +333,9 @@ fun ProgramScreen(onStartWorkout: () -> Unit, vm: ProgramViewModel = viewModel()
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text("第 ${s.order} 节", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                                         Text(s.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                                    }
+                                    IconButton(onClick = { renameSessionId = s.id }) {
+                                        Icon(Icons.Filled.Edit, contentDescription = "重命名小节")
                                     }
                                     OutlinedButton(onClick = { expandedSession = if (expanded) null else s.id }) {
                                         Text(if (expanded) "收起" else "查看动作")
@@ -379,6 +413,35 @@ fun ProgramScreen(onStartWorkout: () -> Unit, vm: ProgramViewModel = viewModel()
             )
         }
     }
+    renameSessionId?.let { sid ->
+        val current = programs.asSequence()
+            .flatMap { it.sessions.asSequence() }
+            .firstOrNull { it.id == sid }?.name ?: ""
+        RenameSessionDialog(
+            currentName = current,
+            onDismiss = { renameSessionId = null },
+            onRename = { name ->
+                if (name.isNotBlank()) vm.renameSession(sid, name.trim())
+                renameSessionId = null
+            }
+        )
+    }
+}
+
+@Composable
+private fun RenameSessionDialog(currentName: String, onDismiss: () -> Unit, onRename: (String) -> Unit) {
+    var name by remember { mutableStateOf(currentName) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("重命名小节") },
+        text = {
+            OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true, label = { Text("小节名称") }, modifier = Modifier.fillMaxWidth())
+        },
+        confirmButton = {
+            TextButton(enabled = name.isNotBlank(), onClick = { onRename(name) }) { Text("保存") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+    )
 }
 
 @Composable

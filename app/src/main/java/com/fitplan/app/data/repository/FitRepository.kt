@@ -82,6 +82,12 @@ class FitRepository(private val db: FitPlanDatabase) {
 
     suspend fun deleteSession(id: Long) = db.programSessionDao().deleteById(id)
 
+    /** 重命名一节（或改节名） */
+    suspend fun renameSession(id: Long, newName: String) {
+        val s = db.programSessionDao().byId(id) ?: return
+        db.programSessionDao().update(s.copy(name = newName))
+    }
+
     suspend fun itemsOf(sessionId: Long): List<ProgramItem> =
         db.programItemDao().itemsOf(sessionId)
 
@@ -181,9 +187,10 @@ class FitRepository(private val db: FitPlanDatabase) {
 
     suspend fun exerciseById(id: Long): Exercise? = db.exerciseDao().byId(id)
 
-    /** 依据 A→B→C→D 轮换给出“今天(day)该练哪一节”的建议；暂无方案或当日已有安排返回 null */
-    suspend fun nextSuggestedSession(day: Long): SessionSuggestion? {
-        val prog = db.programDao().allOrdered().firstOrNull() ?: return null
+    /** 依据 A→B→C→D 轮换给出“今天(day)该练哪一节”的建议；优先用 activeProgramId，否则用第一个方案。 */
+    suspend fun nextSuggestedSession(day: Long, activeProgramId: Long?): SessionSuggestion? {
+        val programs = db.programDao().allOrdered()
+        val prog = programs.firstOrNull { it.id == activeProgramId } ?: programs.firstOrNull() ?: return null
         val sessions = db.programSessionDao().sessionsOf(prog.id)
         if (sessions.isEmpty()) return null
         val last = db.programDayApplyDao().latestBefore(prog.id, day)

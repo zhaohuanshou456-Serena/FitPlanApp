@@ -1,6 +1,7 @@
 package com.fitplan.app
 
 import android.app.Application
+import com.fitplan.app.data.ActivePlanStore
 import com.fitplan.app.data.FitPlanDatabase
 import com.fitplan.app.data.repository.FitRepository
 import kotlinx.coroutines.CoroutineScope
@@ -19,4 +20,6 @@ class FitPlanApp : Application() {
     val repository: FitRepository by lazy {
         FitRepository(database)
     }
+
+    val activePlan: ActivePlanStore by lazy { ActivePlanStore(this) }
 }

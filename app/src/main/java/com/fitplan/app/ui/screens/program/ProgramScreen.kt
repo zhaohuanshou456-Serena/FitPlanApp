@@ -243,7 +243,7 @@ fun ProgramScreen(onStartWorkout: () -> Unit, vm: ProgramViewModel = viewModel()
                             Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text("第 $s.order 节", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                                        Text("第 ${s.order} 节", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                                         Text(s.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                                     }
                                     OutlinedButton(onClick = { expandedSession = if (expanded) null else s.id }) {

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.fitplan.app.data.dao.BodyRecordDao
 import com.fitplan.app.data.dao.ExerciseDao
@@ -11,13 +12,32 @@ import com.fitplan.app.data.dao.ScheduledExerciseDao
 import com.fitplan.app.data.entity.BodyRecord
 import com.fitplan.app.data.entity.Exercise
 import com.fitplan.app.data.entity.ScheduledExercise
+import com.fitplan.app.data.program.ExerciseProgression
+import com.fitplan.app.data.program.ProgressionDao
+import com.fitplan.app.data.program.Program
+import com.fitplan.app.data.program.ProgramDao
+import com.fitplan.app.data.program.ProgramDayApply
+import com.fitplan.app.data.program.ProgramDayApplyDao
+import com.fitplan.app.data.program.ProgramItem
+import com.fitplan.app.data.program.ProgramItemDao
+import com.fitplan.app.data.program.ProgramSession
+import com.fitplan.app.data.program.ProgramSessionDao
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Database(
-    entities = [Exercise::class, ScheduledExercise::class, BodyRecord::class],
-    version = 1,
+    entities = [
+        Exercise::class,
+        ScheduledExercise::class,
+        BodyRecord::class,
+        Program::class,
+        ProgramSession::class,
+        ProgramItem::class,
+        ProgramDayApply::class,
+        ExerciseProgression::class
+    ],
+    version = 2,
     exportSchema = false
 )
 abstract class FitPlanDatabase : RoomDatabase() {
@@ -26,8 +46,67 @@ abstract class FitPlanDatabase : RoomDatabase() {
     abstract fun scheduledExerciseDao(): ScheduledExerciseDao
     abstract fun bodyRecordDao(): BodyRecordDao
 
+    abstract fun programDao(): ProgramDao
+    abstract fun programSessionDao(): ProgramSessionDao
+    abstract fun programItemDao(): ProgramItemDao
+    abstract fun programDayApplyDao(): ProgramDayApplyDao
+    abstract fun progressionDao(): ProgressionDao
+
     companion object {
         const val NAME = "fitplan.db"
+
+        /** v1 -> v2：新增「可复用训练方案」相关的 5 张表（不影响既有数据）。 */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `programs` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, `goal` TEXT, " +
+                        "`dayCount` INTEGER NOT NULL, `note` TEXT, " +
+                        "`createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `program_sessions` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`programId` INTEGER NOT NULL, `sessionOrder` INTEGER NOT NULL, " +
+                        "`name` TEXT NOT NULL, `note` TEXT, " +
+                        "FOREIGN KEY(`programId`) REFERENCES `programs`(`id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_program_sessions_programId` ON `program_sessions` (`programId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `program_items` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`sessionId` INTEGER NOT NULL, `exerciseId` INTEGER NOT NULL, " +
+                        "`itemOrder` INTEGER NOT NULL, `targetSets` INTEGER NOT NULL, " +
+                        "`repMin` INTEGER NOT NULL, `repMax` INTEGER NOT NULL, " +
+                        "`weightKg` REAL, `restSeconds` INTEGER NOT NULL, `formCue` TEXT, " +
+                        "`enableProgressive` INTEGER NOT NULL, `note` TEXT, " +
+                        "FOREIGN KEY(`sessionId`) REFERENCES `program_sessions`(`id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE, " +
+                        "FOREIGN KEY(`exerciseId`) REFERENCES `exercises`(`id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_program_items_sessionId` ON `program_items` (`sessionId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_program_items_exerciseId` ON `program_items` (`exerciseId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `program_day_apply` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`dateEpochDay` INTEGER NOT NULL, `programId` INTEGER NOT NULL, " +
+                        "`sessionId` INTEGER NOT NULL, `appliedAt` INTEGER NOT NULL, " +
+                        "FOREIGN KEY(`sessionId`) REFERENCES `program_sessions`(`id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE)"
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_program_day_apply_dateEpochDay` ON `program_day_apply` (`dateEpochDay`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_program_day_apply_sessionId` ON `program_day_apply` (`sessionId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `exercise_progression` (" +
+                        "`exerciseId` INTEGER NOT NULL PRIMARY KEY, " +
+                        "`bestWeightKg` REAL, `bestReps` INTEGER, " +
+                        "`suggestedWeightKg` REAL, `updatedAt` INTEGER NOT NULL)"
+                )
+            }
+        }
 
         @Volatile
         private var INSTANCE: FitPlanDatabase? = null
@@ -39,6 +118,7 @@ abstract class FitPlanDatabase : RoomDatabase() {
                     FitPlanDatabase::class.java,
                     NAME
                 )
+                    .addMigrations(MIGRATION_1_2)
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)

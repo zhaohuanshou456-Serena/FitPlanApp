@@ -1,10 +1,16 @@
 package com.fitplan.app.data.repository
 
+import androidx.room.withTransaction
 import com.fitplan.app.data.FitPlanDatabase
 import com.fitplan.app.data.dao.ScheduledWithExercise
 import com.fitplan.app.data.entity.BodyRecord
 import com.fitplan.app.data.entity.Exercise
 import com.fitplan.app.data.entity.ScheduledExercise
+import com.fitplan.app.data.program.ExerciseProgression
+import com.fitplan.app.data.program.Program
+import com.fitplan.app.data.program.ProgramDayApply
+import com.fitplan.app.data.program.ProgramItem
+import com.fitplan.app.data.program.ProgramSession
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -46,4 +52,86 @@ class FitRepository(private val db: FitPlanDatabase) {
     suspend fun updateBodyRecord(record: BodyRecord) = db.bodyRecordDao().update(record)
     suspend fun deleteBodyRecord(record: BodyRecord) = db.bodyRecordDao().delete(record)
     suspend fun latestBodyTwo(): List<BodyRecord> = db.bodyRecordDao().latestTwo()
+
+    // ---------- 训练方案（可复用模板） ----------
+    fun observePrograms(): Flow<List<Program>> = db.programDao().observeAll()
+
+    suspend fun insertProgram(program: Program): Long = db.programDao().insert(program)
+    suspend fun deleteProgram(id: Long) = db.programDao().deleteById(id)
+
+    fun observeProgramSessions(programId: Long): Flow<List<ProgramSession>> =
+        db.programSessionDao().observeSessions(programId)
+
+    suspend fun sessionsOf(programId: Long): List<ProgramSession> =
+        db.programSessionDao().sessionsOf(programId)
+
+    suspend fun insertSession(session: ProgramSession): Long =
+        db.programSessionDao().insert(session)
+
+    suspend fun deleteSession(id: Long) = db.programSessionDao().deleteById(id)
+
+    suspend fun itemsOf(sessionId: Long): List<ProgramItem> =
+        db.programItemDao().itemsOf(sessionId)
+
+    fun observeProgramItems(sessionId: Long): Flow<List<ProgramItem>> =
+        db.programItemDao().observeItems(sessionId)
+
+    suspend fun insertProgramItem(item: ProgramItem): Long =
+        db.programItemDao().insert(item)
+
+    suspend fun insertProgramItems(items: List<ProgramItem>) =
+        db.programItemDao().insertAll(items)
+
+    suspend fun deleteProgramItem(id: Long) = db.programItemDao().deleteById(id)
+
+    /** 把方案的某一节应用到某一天：清空当天→按节生成当天计划条目→记录映射。 */
+    suspend fun applyProgramSession(day: Long, programId: Long, sessionId: Long) {
+        db.withTransaction {
+            db.scheduledExerciseDao().deleteForDate(day)
+            db.programDayApplyDao().removeByDate(day)
+            val items = db.programItemDao().itemsOf(sessionId)
+            items.forEachIndexed { i, it ->
+                val cue = buildString {
+                    it.formCue?.let { append(it) }
+                    if (it.repMin > 0 && it.repMax > 0) {
+                        if (isNotEmpty()) append("；")
+                        append("目标 ${it.repMin}–${it.repMax} 次")
+                    }
+                }
+                db.scheduledExerciseDao().insert(
+                    ScheduledExercise(
+                        dateEpochDay = day,
+                        exerciseId = it.exerciseId,
+                        targetSets = it.targetSets,
+                        targetReps = it.repMax,
+                        weight = it.weightKg,
+                        restSeconds = it.restSeconds,
+                        sortOrder = i,
+                        actualNote = cue.ifBlank { null }
+                    )
+                )
+            }
+            db.programDayApplyDao().upsert(
+                ProgramDayApply(dateEpochDay = day, programId = programId, sessionId = sessionId)
+            )
+        }
+    }
+
+    suspend fun appliedProgramOn(day: Long): ProgramDayApply? =
+        db.programDayApplyDao().byDate(day)
+
+    /** 取消某天已应用的方案：只清当天计划与映射，方案模板本身不动。 */
+    suspend fun removeAppliedProgram(day: Long) {
+        db.withTransaction {
+            db.scheduledExerciseDao().deleteForDate(day)
+            db.programDayApplyDao().removeByDate(day)
+        }
+    }
+
+    // ---------- 渐进基线 ----------
+    suspend fun progressionOf(exerciseId: Long): ExerciseProgression? =
+        db.progressionDao().byExercise(exerciseId)
+
+    suspend fun saveProgression(p: ExerciseProgression) =
+        db.progressionDao().upsert(p)
 }

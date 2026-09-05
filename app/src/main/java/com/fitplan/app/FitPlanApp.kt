@@ -3,6 +3,7 @@ package com.fitplan.app
 import android.app.Application
 import com.fitplan.app.data.ActivePlanStore
 import com.fitplan.app.data.FitPlanDatabase
+import com.fitplan.app.data.VisionPrefs
 import com.fitplan.app.data.repository.FitRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,4 +23,6 @@ class FitPlanApp : Application() {
     }
 
     val activePlan: ActivePlanStore by lazy { ActivePlanStore(this) }
+
+    val vision: VisionPrefs by lazy { VisionPrefs(this) }
 }

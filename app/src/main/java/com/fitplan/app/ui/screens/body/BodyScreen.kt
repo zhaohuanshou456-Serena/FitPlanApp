@@ -60,9 +60,13 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material3.OutlinedButton
 import android.graphics.BitmapFactory
+import android.util.Base64
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.fitplan.app.FitPlanApp
+import com.fitplan.app.util.VisionApi
+import org.json.JSONObject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -335,6 +339,42 @@ private fun BodyRecordDialog(
         }
     }
 
+    val appKey = remember { (context.applicationContext as FitPlanApp).vision.apiKey() }
+    val model = remember { (context.applicationContext as FitPlanApp).vision.model() }
+    var aiStatus by remember { mutableStateOf<String?>(null) }
+    var aiRunning by remember { mutableStateOf(false) }
+
+    fun recognize() {
+        val path = photoPath ?: run { aiStatus = "请先拍照/选图"; return }
+        val key = appKey ?: run { aiStatus = "请先在「设置」填 AI Key"; return }
+        aiRunning = true
+        aiStatus = "识别中…"
+        scope.launch {
+            try {
+                val bytes = withContext(Dispatchers.IO) { File(path).readBytes() }
+                val dataUrl = "data:image/jpeg;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
+                val raw = VisionApi.recognize(key, model, dataUrl)
+                val obj = JSONObject(VisionApi.extractJson(raw))
+                val keys = mapOf(
+                    "weight_kg" to "weight", "body_fat_pct" to "bodyFat", "muscle_kg" to "muscle",
+                    "bone_kg" to "bone", "water_pct" to "water", "bmi" to "bmi",
+                    "bmr_kcal" to "bmr", "visceral" to "visceralFat", "waist_cm" to "waist"
+                )
+                MetricCatalog.metrics.forEachIndexed { i, md ->
+                    val gk = keys.entries.firstOrNull { it.value == md.key }?.key
+                    if (gk != null && obj.has(gk) && !obj.isNull(gk)) {
+                        values[i] = obj.optDouble(gk).toString()
+                    }
+                }
+                aiStatus = "已识别，请核对"
+            } catch (e: Exception) {
+                aiStatus = "识别失败：${e.message}"
+            } finally {
+                aiRunning = false
+            }
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (record == null) "新增身体读数" else "编辑身体读数") },
@@ -361,6 +401,13 @@ private fun BodyRecordDialog(
                                 modifier = Modifier.size(72.dp)
                             )
                         }
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(onClick = { recognize() }, enabled = !aiRunning) { Text("AI 识别读数") }
+                    aiStatus?.let {
+                        Spacer(Modifier.width(8.dp))
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                     }
                 }
                 MetricCatalog.metrics.forEachIndexed { i, m ->

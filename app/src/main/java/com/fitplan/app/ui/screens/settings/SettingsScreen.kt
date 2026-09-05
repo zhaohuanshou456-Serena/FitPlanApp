@@ -16,6 +16,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -43,6 +44,8 @@ fun SettingsScreen() {
     val db = app.database
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    var apiKey by remember { mutableStateOf(app.vision.apiKey() ?: "") }
+    var modelT by remember { mutableStateOf(app.vision.model()) }
 
     var importPendingUri by remember { mutableStateOf<Uri?>(null) }
 
@@ -120,6 +123,26 @@ fun SettingsScreen() {
                     OutlinedButton(onClick = { exportCsvLauncher.launch("fitplan_body_${System.currentTimeMillis()}.csv") }) {
                         Text("导出身体参数 (CSV)")
                     }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("AI 识别（智谱 GLM）", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        "用于「身体记录 → AI 识别读数」以及未来「拍食物记卡路里」。图片会上传到智谱，Key 仅存本机。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(value = apiKey, onValueChange = { apiKey = it }, label = { Text("API Key") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = modelT, onValueChange = { modelT = it }, label = { Text("模型名") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    TextButton(onClick = {
+                        app.vision.setApiKey(apiKey.trim())
+                        app.vision.setModel(modelT.trim().ifBlank { "glm-4.6v-flashx" })
+                        scope.launch { snackbarHostState.showSnackbar("已保存 AI 设置") }
+                    }) { Text("保存") }
                 }
             }
 

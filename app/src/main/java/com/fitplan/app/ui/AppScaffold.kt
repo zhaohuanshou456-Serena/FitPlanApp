@@ -2,10 +2,12 @@ package com.fitplan.app.ui
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Today
+import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.MonitorWeight
 import androidx.compose.material.icons.outlined.Settings
@@ -28,11 +30,13 @@ import com.fitplan.app.ui.screens.body.BodyScreen
 import com.fitplan.app.ui.screens.day.DayPlanScreen
 import com.fitplan.app.ui.screens.library.LibraryScreen
 import com.fitplan.app.ui.screens.settings.SettingsScreen
+import com.fitplan.app.ui.screens.program.ProgramScreen
 import com.fitplan.app.ui.workout.WorkoutRunnerScreen
 import com.fitplan.app.ui.workout.WorkoutHistoryScreen
 
 enum class TopDest(val route: String, val label: String) {
     Day("day", "今日"),
+    Plan("plan", "方案"),
     Library("library", "动作"),
     Body("body", "身体"),
     Settings("settings", "设置")
@@ -42,6 +46,7 @@ private data class NavItem(val dest: TopDest, val icon: ImageVector, val iconSel
 
 private val items = listOf(
     NavItem(TopDest.Day, Icons.Outlined.Today, Icons.Filled.Today),
+    NavItem(TopDest.Plan, Icons.Outlined.DateRange, Icons.Filled.DateRange),
     NavItem(TopDest.Library, Icons.Outlined.FitnessCenter, Icons.Filled.FitnessCenter),
     NavItem(TopDest.Body, Icons.Outlined.MonitorWeight, Icons.Filled.MonitorWeight),
     NavItem(TopDest.Settings, Icons.Outlined.Settings, Icons.Filled.Settings)
@@ -94,6 +99,9 @@ fun AppScaffold() {
                     onStartWorkout = { navController.navigate("workout") },
                     onOpenHistory = { navController.navigate("history") }
                 )
+            }
+            composable(TopDest.Plan.route) {
+                ProgramScreen(onStartWorkout = { navController.navigate("workout") })
             }
             composable(TopDest.Library.route) {
                 LibraryScreen(onStartWorkout = { navController.navigate("workout") })

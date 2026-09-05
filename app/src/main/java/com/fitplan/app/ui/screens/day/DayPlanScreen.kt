@@ -54,6 +54,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fitplan.app.FitPlanApp
 import com.fitplan.app.data.entity.Exercise
 import com.fitplan.app.data.entity.ScheduledExercise
+import com.fitplan.app.data.repository.SessionSuggestion
 import com.fitplan.app.ui.common.smart
 import com.fitplan.app.ui.workout.PendingRun
 import com.fitplan.app.ui.workout.RunExercise
@@ -90,6 +91,18 @@ class DayPlanViewModel(app: Application) : AndroidViewModel(app) {
     val dayItems = _selectedDay
         .flatMapLatest { repo.observeForDate(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    init {
+        // 首次打开确保内置 U/L 方案被写入（幂等）
+        viewModelScope.launch { repo.ensureBuiltInPlan() }
+    }
+
+    /** 依据 A→B→C→D 轮换给出该天该练哪节；无方案/该天已有安排返回 null */
+    suspend fun suggest(day: Long): SessionSuggestion? = repo.nextSuggestedSession(day)
+
+    fun applySuggestion(day: Long, programId: Long, sessionId: Long) {
+        viewModelScope.launch { repo.applyProgramSession(day, programId, sessionId) }
+    }
 
     val selectedDateLabel: String
         get() = _selectedDay.value.epochDayToLocalDate().displayChinese()
@@ -178,6 +191,11 @@ fun DayPlanScreen(
     val selectedDay by vm.selectedDay.collectAsStateWithLifecycle()
     val items by vm.dayItems.collectAsStateWithLifecycle()
     val message by vm.message.collectAsStateWithLifecycle()
+
+    var suggestion by remember { mutableStateOf<SessionSuggestion?>(null) }
+    LaunchedEffect(selectedDay, items.isEmpty()) {
+        suggestion = if (items.isEmpty()) vm.suggest(selectedDay) else null
+    }
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(message) {
@@ -289,7 +307,28 @@ fun DayPlanScreen(
 
             // 内容列表
             if (items.isEmpty()) {
-                com.fitplan.app.ui.common.EmptyHint("这一天还没有安排动作\n点右下角 + 从动作库添加")
+                suggestion?.let { sg ->
+                    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                "方案 · 下一个应练",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(sg.sessionName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                "${sg.programName} · A→B→C→D 轮换，练完自动进下一节",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Button(
+                                onClick = { vm.applySuggestion(selectedDay, sg.programId, sg.sessionId) },
+                                modifier = Modifier.padding(top = 8.dp)
+                            ) { Text("一键应用今天") }
+                        }
+                    }
+                }
+                com.fitplan.app.ui.common.EmptyHint("这一天还没有安排动作\n点右下角 + 从动作库添加，或一键应用上方方案")
             } else {
                 LazyColumn(
                     contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 88.dp)

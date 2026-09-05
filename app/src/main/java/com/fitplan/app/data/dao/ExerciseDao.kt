@@ -36,4 +36,7 @@ interface ExerciseDao {
 
     @Query("DELETE FROM exercises")
     suspend fun clearAll()
+
+    @Query("SELECT id FROM exercises WHERE name = :name LIMIT 1")
+    suspend fun idByName(name: String): Long?
 }

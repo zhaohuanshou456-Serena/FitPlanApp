@@ -16,6 +16,9 @@ interface ProgramDao {
     @Query("SELECT * FROM programs WHERE id = :id")
     suspend fun byId(id: Long): Program?
 
+    @Query("SELECT * FROM programs ORDER BY createdAt ASC")
+    suspend fun allOrdered(): List<Program>
+
     @Insert
     suspend fun insert(program: Program): Long
 
@@ -72,6 +75,9 @@ interface ProgramItemDao {
 interface ProgramDayApplyDao {
     @Query("SELECT * FROM program_day_apply WHERE dateEpochDay = :day LIMIT 1")
     suspend fun byDate(day: Long): ProgramDayApply?
+
+    @Query("SELECT * FROM program_day_apply WHERE programId = :programId AND dateEpochDay < :day ORDER BY dateEpochDay DESC LIMIT 1")
+    suspend fun latestBefore(programId: Long, day: Long): ProgramDayApply?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(apply: ProgramDayApply)

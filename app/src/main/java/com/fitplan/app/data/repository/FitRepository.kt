@@ -10,10 +10,19 @@ import com.fitplan.app.data.program.ExerciseProgression
 import com.fitplan.app.data.program.Program
 import com.fitplan.app.data.program.ProgramDayApply
 import com.fitplan.app.data.program.ProgramItem
+import com.fitplan.app.data.program.ProgramSeeder
 import com.fitplan.app.data.program.ProgramSession
 import com.fitplan.app.data.workout.WorkoutSession
 import com.fitplan.app.data.workout.WorkoutSet
 import kotlinx.coroutines.flow.Flow
+
+/** 方案轮换建议：下一个应练的节 */
+data class SessionSuggestion(
+    val programId: Long,
+    val sessionId: Long,
+    val programName: String,
+    val sessionName: String
+)
 
 /**
  * 统一的数据访问门面，屏蔽 DAO 细节，供 ViewModel 调用。
@@ -158,4 +167,27 @@ class FitRepository(private val db: FitPlanDatabase) {
         db.workoutDao().observeSets(sessionId)
 
     suspend fun deleteWorkout(id: Long) = db.workoutDao().deleteSession(id)
+
+    // ---------- 训练方案（种子 + 轮换建议） ----------
+    /** 首次确保内置 U/L 方案被写入（仅当无任何方案时） */
+    suspend fun ensureBuiltInPlan(): Boolean = ProgramSeeder.ensure(db)
+
+    suspend fun programsAll(): List<Program> = db.programDao().allOrdered()
+
+    suspend fun exerciseById(id: Long): Exercise? = db.exerciseDao().byId(id)
+
+    /** 依据 A→B→C→D 轮换给出“今天(day)该练哪一节”的建议；暂无方案或当日已有安排返回 null */
+    suspend fun nextSuggestedSession(day: Long): SessionSuggestion? {
+        val prog = db.programDao().allOrdered().firstOrNull() ?: return null
+        val sessions = db.programSessionDao().sessionsOf(prog.id)
+        if (sessions.isEmpty()) return null
+        val last = db.programDayApplyDao().latestBefore(prog.id, day)
+        var idx = 0
+        if (last != null) {
+            val li = sessions.indexOfFirst { it.id == last.sessionId }
+            if (li in sessions.indices) idx = (li + 1) % sessions.size
+        }
+        val s = sessions[idx]
+        return SessionSuggestion(prog.id, s.id, prog.name, s.name)
+    }
 }

@@ -10,6 +10,7 @@ import com.fitplan.app.data.program.ExerciseProgression
 import com.fitplan.app.data.program.Program
 import com.fitplan.app.data.program.ProgramDayApply
 import com.fitplan.app.data.program.ProgramItem
+import com.fitplan.app.data.program.ProgramJson
 import com.fitplan.app.data.program.ProgramSeeder
 import com.fitplan.app.data.program.ProgramSession
 import com.fitplan.app.data.workout.WorkoutSession
@@ -173,6 +174,10 @@ class FitRepository(private val db: FitPlanDatabase) {
     suspend fun ensureBuiltInPlan(): Boolean = ProgramSeeder.ensure(db)
 
     suspend fun programsAll(): List<Program> = db.programDao().allOrdered()
+
+    suspend fun exportProgramsJson(): String = ProgramJson.export(db)
+
+    suspend fun importProgramsJson(json: String): Int = ProgramJson.import(db, json)
 
     suspend fun exerciseById(id: Long): Exercise? = db.exerciseDao().byId(id)
 

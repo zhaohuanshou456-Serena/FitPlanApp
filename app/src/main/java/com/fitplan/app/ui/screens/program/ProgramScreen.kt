@@ -31,6 +31,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.fitplan.app.FitPlanApp
 import com.fitplan.app.ui.workout.PendingRun
 import com.fitplan.app.ui.workout.RunExercise
@@ -140,6 +148,14 @@ class ProgramViewModel(app: Application) : AndroidViewModel(app) {
             repo.applyProgramSession(LocalDate.now().toEpochDayLong(), programId, sessionId)
         }
     }
+
+    suspend fun exportJson(): String = repo.exportProgramsJson()
+
+    suspend fun importJson(json: String): Int {
+        val n = repo.importProgramsJson(json)
+        rebuild()
+        return n
+    }
 }
 
 @Composable
@@ -147,6 +163,36 @@ fun ProgramScreen(onStartWorkout: () -> Unit, vm: ProgramViewModel = viewModel()
     val programs by vm.programs.collectAsStateWithLifecycle()
     var expandedSession by remember { mutableStateOf<Long?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val context = LocalContext.current
+    var status by remember { mutableStateOf<String?>(null) }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val bytes = withContext(Dispatchers.IO) { vm.exportJson().toByteArray(Charsets.UTF_8) }
+                runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) } }
+                    .onSuccess { status = "已导出方案 JSON" }
+                    .onFailure { status = "导出失败：${it.message}" }
+            }
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                runCatching {
+                    val json = withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                    } ?: ""
+                    val n = vm.importJson(json)
+                    status = "已导入 $n 套方案"
+                }.onFailure { status = "导入失败：${it.message}" }
+            }
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
@@ -155,6 +201,25 @@ fun ProgramScreen(onStartWorkout: () -> Unit, vm: ProgramViewModel = viewModel()
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+        ) {
+            OutlinedButton(onClick = { exportLauncher.launch("fitplan_plans_${System.currentTimeMillis()}.json") }) {
+                Text("导出(JSON)")
+            }
+            OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) }) {
+                Text("导入(JSON)")
+            }
+        }
+        status?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+            )
+        }
         if (programs.isEmpty()) {
             com.fitplan.app.ui.common.EmptyHint("还没有方案\n首次打开今日会自动内置一套 U/L 方案")
         } else {

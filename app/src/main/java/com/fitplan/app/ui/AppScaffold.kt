@@ -28,6 +28,7 @@ import com.fitplan.app.ui.screens.body.BodyScreen
 import com.fitplan.app.ui.screens.day.DayPlanScreen
 import com.fitplan.app.ui.screens.library.LibraryScreen
 import com.fitplan.app.ui.screens.settings.SettingsScreen
+import com.fitplan.app.ui.workout.WorkoutRunnerScreen
 
 enum class TopDest(val route: String, val label: String) {
     Day("day", "今日"),
@@ -50,31 +51,34 @@ fun AppScaffold() {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
+    val showBottomBar = TopDest.entries.any { it.route == currentRoute }
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
-                items.forEach { item ->
-                    val selected = currentRoute == item.dest.route
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = {
-                            navController.navigate(item.dest.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+            if (showBottomBar) {
+                NavigationBar {
+                    items.forEach { item ->
+                        val selected = currentRoute == item.dest.route
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = {
+                                navController.navigate(item.dest.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = {
-                            Icon(
-                                imageVector = if (selected) item.iconSelected else item.icon,
-                                contentDescription = item.dest.label
-                            )
-                        },
-                        label = { Text(item.dest.label) }
-                    )
+                            },
+                            icon = {
+                                Icon(
+                                    imageVector = if (selected) item.iconSelected else item.icon,
+                                    contentDescription = item.dest.label
+                                )
+                            },
+                            label = { Text(item.dest.label) }
+                        )
+                    }
                 }
             }
         }
@@ -84,10 +88,17 @@ fun AppScaffold() {
             startDestination = TopDest.Day.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(TopDest.Day.route) { DayPlanScreen() }
-            composable(TopDest.Library.route) { LibraryScreen() }
+            composable(TopDest.Day.route) {
+                DayPlanScreen(onStartWorkout = { navController.navigate("workout") })
+            }
+            composable(TopDest.Library.route) {
+                LibraryScreen(onStartWorkout = { navController.navigate("workout") })
+            }
             composable(TopDest.Body.route) { BodyScreen() }
             composable(TopDest.Settings.route) { SettingsScreen() }
+            composable("workout") {
+                WorkoutRunnerScreen(onExit = { navController.popBackStack() })
+            }
         }
     }
 }

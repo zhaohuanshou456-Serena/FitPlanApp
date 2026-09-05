@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material3.Card
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -53,6 +54,8 @@ import com.fitplan.app.FitPlanApp
 import com.fitplan.app.data.entity.Exercise
 import com.fitplan.app.data.entity.ScheduledExercise
 import com.fitplan.app.ui.common.smart
+import com.fitplan.app.ui.workout.PendingRun
+import com.fitplan.app.ui.workout.RunExercise
 import com.fitplan.app.util.displayChinese
 import com.fitplan.app.util.displayString
 import com.fitplan.app.util.epochDayToLocalDate
@@ -166,7 +169,7 @@ class DayPlanViewModel(app: Application) : AndroidViewModel(app) {
 }
 
 @Composable
-fun DayPlanScreen(vm: DayPlanViewModel = viewModel()) {
+fun DayPlanScreen(onStartWorkout: () -> Unit = {}, vm: DayPlanViewModel = viewModel()) {
     val selectedDay by vm.selectedDay.collectAsStateWithLifecycle()
     val items by vm.dayItems.collectAsStateWithLifecycle()
     val message by vm.message.collectAsStateWithLifecycle()
@@ -240,6 +243,39 @@ fun DayPlanScreen(vm: DayPlanViewModel = viewModel()) {
                 }
                 IconButton(onClick = { deleteId = -1L }) {
                     Icon(Icons.Filled.Delete, contentDescription = "清空当日", tint = MaterialTheme.colorScheme.error)
+                }
+            }
+
+            // 开始训练入口
+            if (items.isNotEmpty()) {
+                val todo = items.filter { !it.isCompleted }
+                if (todo.isNotEmpty()) {
+                    Button(
+                        onClick = {
+                            PendingRun.exercises = todo.map {
+                                RunExercise(
+                                    exerciseId = it.exerciseId,
+                                    name = it.exerciseName,
+                                    muscle = it.muscleGroup,
+                                    equipment = it.equipment,
+                                    sets = it.targetSets,
+                                    reps = it.targetReps,
+                                    restSeconds = it.restSeconds,
+                                    startWeight = it.weight,
+                                    scheduledId = it.id
+                                )
+                            }
+                            PendingRun.sourceKind = "DAY"
+                            PendingRun.sourceRef = selectedDay
+                            PendingRun.title = "训练 · ${vm.selectedDateLabel}"
+                            onStartWorkout()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Text("▶ 开始训练（剩 ${todo.size} 个动作 · 引导计时）")
+                    }
                 }
             }
 

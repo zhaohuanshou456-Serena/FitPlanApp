@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,11 +19,14 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -44,6 +48,8 @@ import com.fitplan.app.data.entity.Exercise
 import com.fitplan.app.ui.common.DropdownField
 import com.fitplan.app.ui.common.EmptyHint
 import com.fitplan.app.ui.common.SectionHeader
+import com.fitplan.app.ui.workout.PendingRun
+import com.fitplan.app.ui.workout.RunExercise
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -71,11 +77,12 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
 }
 
 @Composable
-fun LibraryScreen(vm: LibraryViewModel = viewModel()) {
+fun LibraryScreen(onStartWorkout: () -> Unit = {}, vm: LibraryViewModel = viewModel()) {
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     var showAdd by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<Exercise?>(null) }
     var deleteTarget by remember { mutableStateOf<Exercise?>(null) }
+    var showFreePick by remember { mutableStateOf(false) }
 
     val grouped = remember(exercises) {
         exercises.groupBy { it.muscleGroup }.toSortedMap().toList()
@@ -96,6 +103,14 @@ fun LibraryScreen(vm: LibraryViewModel = viewModel()) {
             }
             if (exercises.isEmpty()) {
                 item { EmptyHint("还没有动作，点右下角 + 添加") }
+            }
+            if (exercises.isNotEmpty()) {
+                item {
+                    OutlinedButton(
+                        onClick = { showFreePick = true },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                    ) { Text("开始训练 · 从动作库选动作自由练") }
+                }
             }
             grouped.forEach { (group, list) ->
                 item(key = "head-$group") { SectionHeader(group) }
@@ -176,6 +191,17 @@ fun LibraryScreen(vm: LibraryViewModel = viewModel()) {
             onDismiss = { deleteTarget = null }
         )
     }
+
+    if (showFreePick) {
+        FreePickDialog(
+            exercises = exercises,
+            onDismiss = { showFreePick = false },
+            onStart = {
+                showFreePick = false
+                onStartWorkout()
+            }
+        )
+    }
 }
 
 @Composable
@@ -228,6 +254,87 @@ private fun ExerciseEditDialog(
                     )
                 }
             ) { Text("保存") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+    )
+}
+
+@Composable
+private fun FreePickDialog(
+    exercises: List<Exercise>,
+    onDismiss: () -> Unit,
+    onStart: () -> Unit
+) {
+    var checked by remember { mutableStateOf(setOf<Long>()) }
+    var setsText by remember { mutableStateOf("3") }
+    var repsText by remember { mutableStateOf("10") }
+    var restText by remember { mutableStateOf("90") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("选动作开始训练（可多选）") },
+        text = {
+            Column {
+                if (exercises.isNotEmpty()) {
+                    LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                        items(exercises.size, key = { exercises[it].id }) { i ->
+                            val ex = exercises[i]
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(
+                                    checked = ex.id in checked,
+                                    onCheckedChange = { on ->
+                                        checked = if (on) checked + ex.id else checked - ex.id
+                                    }
+                                )
+                                Text("${ex.name} · ${ex.equipment}", style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                    com.fitplan.app.ui.common.NumberField(
+                        label = "每组组数", value = setsText, onValueChange = { setsText = it }, modifier = Modifier.weight(1f)
+                    )
+                    com.fitplan.app.ui.common.NumberField(
+                        label = "次数", value = repsText, onValueChange = { repsText = it }, modifier = Modifier.weight(1f)
+                    )
+                    com.fitplan.app.ui.common.NumberField(
+                        label = "休息秒", value = restText, onValueChange = { restText = it }, modifier = Modifier.weight(1f)
+                    )
+                }
+                Text(
+                    "重量在训练中可填（留空=自重）",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = checked.isNotEmpty(),
+                onClick = {
+                    val sets = setsText.toIntOrNull()?.coerceIn(1, 10) ?: 3
+                    val reps = repsText.toIntOrNull()?.coerceIn(1, 50) ?: 10
+                    val rest = restText.toIntOrNull()?.coerceIn(0, 600) ?: 90
+                    PendingRun.exercises = exercises.filter { it.id in checked }.map {
+                        RunExercise(
+                            exerciseId = it.id,
+                            name = it.name,
+                            muscle = it.muscleGroup,
+                            equipment = it.equipment,
+                            sets = sets,
+                            reps = reps,
+                            restSeconds = rest,
+                            startWeight = null
+                        )
+                    }
+                    PendingRun.sourceKind = "FREE"
+                    PendingRun.sourceRef = null
+                    PendingRun.title = "自由训练"
+                    onStart()
+                }
+            ) { Text("开始") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
     )

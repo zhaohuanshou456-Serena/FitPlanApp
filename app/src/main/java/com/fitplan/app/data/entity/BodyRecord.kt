@@ -25,5 +25,7 @@ data class BodyRecord(
     val bmrKcal: Double? = null,
     val visceralFat: Double? = null,
     val waistCm: Double? = null,
-    val note: String? = null
+    val note: String? = null,
+    /** 关联照片在本地文件里的路径（拍照/选图留档），可空 */
+    val photoPath: String? = null
 )

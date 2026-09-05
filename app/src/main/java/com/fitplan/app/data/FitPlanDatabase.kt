@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
         WorkoutSession::class,
         WorkoutSet::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class FitPlanDatabase : RoomDatabase() {
@@ -140,6 +140,13 @@ abstract class FitPlanDatabase : RoomDatabase() {
             }
         }
 
+        /** v3 -> v4：身体记录增加照片路径列（拍照/选图留档） */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `body_records` ADD COLUMN `photoPath` TEXT")
+            }
+        }
+
         @Volatile
         private var INSTANCE: FitPlanDatabase? = null
 
@@ -150,7 +157,7 @@ abstract class FitPlanDatabase : RoomDatabase() {
                     FitPlanDatabase::class.java,
                     NAME
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)

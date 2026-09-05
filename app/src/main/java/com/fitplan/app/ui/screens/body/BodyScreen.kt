@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -50,6 +51,18 @@ import com.fitplan.app.ui.body.MetricCatalog
 import com.fitplan.app.ui.body.TrendChart
 import com.fitplan.app.ui.common.smart
 import com.fitplan.app.util.timestampToDateString
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.material3.OutlinedButton
+import android.graphics.BitmapFactory
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -95,6 +108,7 @@ fun BodyScreen(vm: BodyViewModel = viewModel()) {
     val latestRecord = records.lastOrNull()
 
     var formRecord by remember { mutableStateOf<BodyRecord?>(null) }
+    var showNew by remember { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<BodyRecord?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -180,7 +194,7 @@ fun BodyScreen(vm: BodyViewModel = viewModel()) {
             }
 
             item {
-                TextButton(onClick = { formRecord = null }) {
+                TextButton(onClick = { showNew = true }) {
                     Text("＋ 新增一次读数", color = MaterialTheme.colorScheme.primary)
                 }
             }
@@ -223,13 +237,23 @@ fun BodyScreen(vm: BodyViewModel = viewModel()) {
         }
 
         FloatingActionButton(
-            onClick = { formRecord = null },
+            onClick = { showNew = true },
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
         ) {
             Icon(Icons.Filled.Add, contentDescription = "新增读数")
         }
     }
 
+    if (showNew) {
+        BodyRecordDialog(
+            record = null,
+            onDismiss = { showNew = false },
+            onSave = {
+                vm.save(it)
+                showNew = false
+            }
+        )
+    }
     formRecord?.let { record ->
         BodyRecordDialog(
             record = record,
@@ -293,6 +317,24 @@ private fun BodyRecordDialog(
         MetricCatalog.metrics.map { initial(it.key) }.toMutableStateList()
     }
 
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var photoPath by remember { mutableStateOf(record?.photoPath) }
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val dest = withContext(Dispatchers.IO) {
+                    val f = File(context.filesDir, "body_${System.currentTimeMillis()}.jpg")
+                    try {
+                        context.contentResolver.openInputStream(uri)?.use { inp -> f.outputStream().use { inp.copyTo(it) } }
+                        f.absolutePath
+                    } catch (e: Exception) { null }
+                }
+                dest?.let { photoPath = it }
+            }
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (record == null) "新增身体读数" else "编辑身体读数") },
@@ -306,6 +348,21 @@ private fun BodyRecordDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(onClick = { pick.launch("image/*") }) { Text("拍照/选图") }
+                    photoPath?.let { path ->
+                        val bmp = remember(path) { BitmapFactory.decodeFile(path) }
+                        bmp?.let { b ->
+                            Spacer(Modifier.width(8.dp))
+                            Image(
+                                bitmap = b.asImageBitmap(),
+                                contentDescription = "读数照片",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.size(72.dp)
+                            )
+                        }
+                    }
+                }
                 MetricCatalog.metrics.forEachIndexed { i, m ->
                     com.fitplan.app.ui.common.NumberField(
                         label = m.label,
@@ -328,7 +385,7 @@ private fun BodyRecordDialog(
                             if (v != null) base = MetricCatalog.withValue(base, MetricCatalog.metrics[i].key, v)
                         }
                     }
-                    onSave(base)
+                    onSave(base.copy(photoPath = photoPath))
                 }
             ) { Text("保存") }
         },

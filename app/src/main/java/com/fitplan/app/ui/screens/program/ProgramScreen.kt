@@ -228,7 +228,7 @@ class ProgramViewModel(app: Application) : AndroidViewModel(app) {
 }
 
 @Composable
-fun ProgramScreen(onStartWorkout: () -> Unit, vm: ProgramViewModel = viewModel()) {
+fun ProgramScreen(onStartWorkout: () -> Unit, onOpenLibrary: () -> Unit = {}, vm: ProgramViewModel = viewModel()) {
     val programs by vm.programs.collectAsStateWithLifecycle()
     var expandedSession by remember { mutableStateOf<Long?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -286,6 +286,7 @@ fun ProgramScreen(onStartWorkout: () -> Unit, vm: ProgramViewModel = viewModel()
             OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) }) {
                 Text("导入(JSON)")
             }
+            OutlinedButton(onClick = onOpenLibrary) { Text("动作库") }
             Button(onClick = { showNewProgram = true }) { Text("＋ 新建方案") }
         }
         status?.let {

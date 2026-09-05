@@ -77,7 +77,7 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
 }
 
 @Composable
-fun LibraryScreen(onStartWorkout: () -> Unit = {}, vm: LibraryViewModel = viewModel()) {
+fun LibraryScreen(onStartWorkout: () -> Unit = {}, onBack: () -> Unit = {}, vm: LibraryViewModel = viewModel()) {
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     var showAdd by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<Exercise?>(null) }
@@ -94,12 +94,18 @@ fun LibraryScreen(onStartWorkout: () -> Unit = {}, vm: LibraryViewModel = viewMo
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 16.dp, bottom = 88.dp)
         ) {
             item {
-                Text(
-                    "动作库",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    TextButton(onClick = onBack) { Text("← 返回") }
+                    Text(
+                        "动作库",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
+                    )
+                }
             }
             if (exercises.isEmpty()) {
                 item { EmptyHint("还没有动作，点右下角 + 添加") }

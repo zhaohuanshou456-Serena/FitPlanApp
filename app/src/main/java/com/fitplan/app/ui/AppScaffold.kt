@@ -37,7 +37,6 @@ import com.fitplan.app.ui.workout.WorkoutHistoryScreen
 enum class TopDest(val route: String, val label: String) {
     Day("day", "今日"),
     Plan("plan", "方案"),
-    Library("library", "动作"),
     Body("body", "身体"),
     Settings("settings", "设置")
 }
@@ -47,7 +46,6 @@ private data class NavItem(val dest: TopDest, val icon: ImageVector, val iconSel
 private val items = listOf(
     NavItem(TopDest.Day, Icons.Outlined.Today, Icons.Filled.Today),
     NavItem(TopDest.Plan, Icons.Outlined.DateRange, Icons.Filled.DateRange),
-    NavItem(TopDest.Library, Icons.Outlined.FitnessCenter, Icons.Filled.FitnessCenter),
     NavItem(TopDest.Body, Icons.Outlined.MonitorWeight, Icons.Filled.MonitorWeight),
     NavItem(TopDest.Settings, Icons.Outlined.Settings, Icons.Filled.Settings)
 )
@@ -101,10 +99,16 @@ fun AppScaffold() {
                 )
             }
             composable(TopDest.Plan.route) {
-                ProgramScreen(onStartWorkout = { navController.navigate("workout") })
+                ProgramScreen(
+                    onStartWorkout = { navController.navigate("workout") },
+                    onOpenLibrary = { navController.navigate("library") }
+                )
             }
-            composable(TopDest.Library.route) {
-                LibraryScreen(onStartWorkout = { navController.navigate("workout") })
+            composable("library") {
+                LibraryScreen(
+                    onStartWorkout = { navController.navigate("workout") },
+                    onBack = { navController.popBackStack() }
+                )
             }
             composable(TopDest.Body.route) { BodyScreen() }
             composable(TopDest.Settings.route) { SettingsScreen() }

@@ -93,8 +93,11 @@ class DayPlanViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        // 首次打开确保内置 U/L 方案被写入（幂等）
-        viewModelScope.launch { repo.ensureBuiltInPlan() }
+        // 首次打开确保内置 U/L 方案、要领/易错点动作库被写入（幂等）
+        viewModelScope.launch {
+            repo.ensureBuiltInPlan()
+            repo.ensureCueExercises()
+        }
     }
 
     /** 依据 A→B→C→D 轮换给出该天该练哪节；优先“当前方案”；无方案/该天已有安排返回 null */

@@ -1,6 +1,7 @@
 package com.fitplan.app.data.repository
 
 import androidx.room.withTransaction
+import com.fitplan.app.data.ExerciseCueSeed
 import com.fitplan.app.data.FitPlanDatabase
 import com.fitplan.app.data.dao.ScheduledWithExercise
 import com.fitplan.app.data.entity.BodyRecord
@@ -180,6 +181,9 @@ class FitRepository(private val db: FitPlanDatabase) {
     suspend fun ensureBuiltInPlan(): Boolean = ProgramSeeder.ensure(db)
 
     suspend fun programsAll(): List<Program> = db.programDao().allOrdered()
+
+    /** 首次把“动作要领+易错点”内容库动作写入动作库（幂等） */
+    suspend fun ensureCueExercises(): Int = ExerciseCueSeed.ensure(db)
 
     suspend fun exportProgramsJson(): String = ProgramJson.export(db)
 

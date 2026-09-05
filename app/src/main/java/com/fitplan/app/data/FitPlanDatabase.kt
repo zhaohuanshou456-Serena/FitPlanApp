@@ -22,6 +22,9 @@ import com.fitplan.app.data.program.ProgramItem
 import com.fitplan.app.data.program.ProgramItemDao
 import com.fitplan.app.data.program.ProgramSession
 import com.fitplan.app.data.program.ProgramSessionDao
+import com.fitplan.app.data.workout.WorkoutDao
+import com.fitplan.app.data.workout.WorkoutSession
+import com.fitplan.app.data.workout.WorkoutSet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -35,9 +38,11 @@ import kotlinx.coroutines.launch
         ProgramSession::class,
         ProgramItem::class,
         ProgramDayApply::class,
-        ExerciseProgression::class
+        ExerciseProgression::class,
+        WorkoutSession::class,
+        WorkoutSet::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class FitPlanDatabase : RoomDatabase() {
@@ -51,6 +56,8 @@ abstract class FitPlanDatabase : RoomDatabase() {
     abstract fun programItemDao(): ProgramItemDao
     abstract fun programDayApplyDao(): ProgramDayApplyDao
     abstract fun progressionDao(): ProgressionDao
+
+    abstract fun workoutDao(): WorkoutDao
 
     companion object {
         const val NAME = "fitplan.db"
@@ -108,6 +115,31 @@ abstract class FitPlanDatabase : RoomDatabase() {
             }
         }
 
+        /** v2 -> v3：新增训练会话与组记录（开始训练/组间计时/历史）。 */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `workout_sessions` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`startedAt` INTEGER NOT NULL, `endedAt` INTEGER, " +
+                        "`title` TEXT, `sourceKind` TEXT NOT NULL, `sourceRef` INTEGER, " +
+                        "`note` TEXT)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `workout_sets` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`sessionId` INTEGER NOT NULL, `exerciseId` INTEGER NOT NULL, " +
+                        "`exerciseName` TEXT NOT NULL, `muscleGroup` TEXT NOT NULL, " +
+                        "`setIndex` INTEGER NOT NULL, `weightKg` REAL, `reps` INTEGER NOT NULL, " +
+                        "`plannedReps` INTEGER, `restSeconds` INTEGER, `loggedAt` INTEGER NOT NULL, " +
+                        "FOREIGN KEY(`sessionId`) REFERENCES `workout_sessions`(`id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_workout_sets_sessionId` ON `workout_sets` (`sessionId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_workout_sets_exerciseId` ON `workout_sets` (`exerciseId`)")
+            }
+        }
+
         @Volatile
         private var INSTANCE: FitPlanDatabase? = null
 
@@ -118,7 +150,7 @@ abstract class FitPlanDatabase : RoomDatabase() {
                     FitPlanDatabase::class.java,
                     NAME
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)

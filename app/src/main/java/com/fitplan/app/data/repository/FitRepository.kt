@@ -11,6 +11,8 @@ import com.fitplan.app.data.program.Program
 import com.fitplan.app.data.program.ProgramDayApply
 import com.fitplan.app.data.program.ProgramItem
 import com.fitplan.app.data.program.ProgramSession
+import com.fitplan.app.data.workout.WorkoutSession
+import com.fitplan.app.data.workout.WorkoutSet
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -134,4 +136,23 @@ class FitRepository(private val db: FitPlanDatabase) {
 
     suspend fun saveProgression(p: ExerciseProgression) =
         db.progressionDao().upsert(p)
+
+    // ---------- 开始训练 / 组记录 ----------
+    fun observeWorkoutSessions(): Flow<List<WorkoutSession>> =
+        db.workoutDao().observeSessions()
+
+    suspend fun beginWorkout(session: WorkoutSession): Long =
+        db.workoutDao().insertSession(session)
+
+    suspend fun endWorkout(id: Long) {
+        val s = db.workoutDao().byId(id) ?: return
+        db.workoutDao().updateSession(s.copy(endedAt = System.currentTimeMillis()))
+    }
+
+    suspend fun logWorkoutSet(set: WorkoutSet) = db.workoutDao().insertSet(set)
+
+    suspend fun setsOfWorkout(sessionId: Long): List<WorkoutSet> =
+        db.workoutDao().setsOf(sessionId)
+
+    suspend fun deleteWorkout(id: Long) = db.workoutDao().deleteSession(id)
 }

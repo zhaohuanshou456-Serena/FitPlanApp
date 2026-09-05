@@ -36,21 +36,38 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.fitplan.app.FitPlanApp
+import com.fitplan.app.data.entity.Exercise
+import com.fitplan.app.data.program.Program
+import com.fitplan.app.data.program.ProgramItem
+import com.fitplan.app.data.program.ProgramSession
 import com.fitplan.app.ui.workout.PendingRun
 import com.fitplan.app.ui.workout.RunExercise
 import com.fitplan.app.util.epochDayToLocalDate
 import com.fitplan.app.util.toEpochDayLong
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 /** UI 层：方案内一节里的一个动作 */
 data class PItemUI(
+    val id: Long,
     val exerciseId: Long,
     val exerciseName: String,
     val muscle: String,
@@ -83,6 +100,10 @@ class ProgramViewModel(app: Application) : AndroidViewModel(app) {
     private val _programs = MutableStateFlow<List<PProgramUI>>(emptyList())
     val programs: StateFlow<List<PProgramUI>> = _programs
 
+    val exercises = repo.observeExercises().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
+
     init {
         viewModelScope.launch {
             repo.ensureBuiltInPlan()
@@ -102,6 +123,7 @@ class ProgramViewModel(app: Application) : AndroidViewModel(app) {
                     val ex = repo.exerciseById(it.exerciseId) ?: continue
                     itemUIs.add(
                         PItemUI(
+                            id = it.id,
                             exerciseId = it.exerciseId,
                             exerciseName = ex.name,
                             muscle = ex.muscleGroup,
@@ -156,6 +178,36 @@ class ProgramViewModel(app: Application) : AndroidViewModel(app) {
         rebuild()
         return n
     }
+
+    fun createProgram(name: String, sessionCount: Int) {
+        viewModelScope.launch {
+            val pid = repo.insertProgram(Program(name = name, dayCount = sessionCount))
+            for (i in 1..sessionCount) {
+                repo.insertSession(ProgramSession(programId = pid, sessionOrder = i, name = "节 $i"))
+            }
+            rebuild()
+        }
+    }
+
+    fun addItem(sessionId: Long, exerciseId: Long, sets: Int, repMin: Int, repMax: Int, rest: Int, weight: Double?) {
+        viewModelScope.launch {
+            repo.insertProgramItem(
+                ProgramItem(
+                    sessionId = sessionId, exerciseId = exerciseId, itemOrder = 99,
+                    targetSets = sets, repMin = repMin, repMax = repMax,
+                    restSeconds = rest, weightKg = weight, enableProgressive = true
+                )
+            )
+            rebuild()
+        }
+    }
+
+    fun deleteItem(itemId: Long) {
+        viewModelScope.launch {
+            repo.deleteProgramItem(itemId)
+            rebuild()
+        }
+    }
 }
 
 @Composable
@@ -165,6 +217,10 @@ fun ProgramScreen(onStartWorkout: () -> Unit, vm: ProgramViewModel = viewModel()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val context = LocalContext.current
     var status by remember { mutableStateOf<String?>(null) }
+    var showNewProgram by remember { mutableStateOf(false) }
+    var addSessionId by remember { mutableStateOf<Long?>(null) }
+    var pickedExercise by remember { mutableStateOf<Exercise?>(null) }
+    val exercises by vm.exercises.collectAsStateWithLifecycle()
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -211,6 +267,7 @@ fun ProgramScreen(onStartWorkout: () -> Unit, vm: ProgramViewModel = viewModel()
             OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) }) {
                 Text("导入(JSON)")
             }
+            Button(onClick = { showNewProgram = true }) { Text("＋ 新建方案") }
         }
         status?.let {
             Text(
@@ -252,21 +309,27 @@ fun ProgramScreen(onStartWorkout: () -> Unit, vm: ProgramViewModel = viewModel()
                                 }
                                 if (expanded) {
                                     s.items.forEach { item ->
-                                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                                            Text(
-                                                "${item.sets}×${item.repMin}–${item.repMax} · ${item.exerciseName} · ${item.equipment}",
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                            if (item.weightKg != null) {
-                                                Text("起始 ${item.weightKg}kg", style = MaterialTheme.typography.bodySmall)
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Column(modifier = Modifier.weight(1f).padding(vertical = 4.dp)) {
+                                                Text(
+                                                    "${item.sets}×${item.repMin}–${item.repMax} · ${item.exerciseName} · ${item.equipment}",
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+                                                if (item.weightKg != null) {
+                                                    Text("起始 ${item.weightKg}kg", style = MaterialTheme.typography.bodySmall)
+                                                }
+                                                if (!item.cue.isNullOrBlank()) {
+                                                    Text("要领：${item.cue}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                                Text("休息 ${item.restSeconds}s", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
-                                            if (!item.cue.isNullOrBlank()) {
-                                                Text("要领：${item.cue}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            IconButton(onClick = { vm.deleteItem(item.id) }) {
+                                                Icon(Icons.Filled.Delete, contentDescription = "删除动作", tint = MaterialTheme.colorScheme.error)
                                             }
-                                            Text("休息 ${item.restSeconds}s", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     }
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+                                        OutlinedButton(onClick = { addSessionId = s.id; pickedExercise = null }) { Text("添加动作") }
                                         Button(onClick = { vm.applyToToday(prog.id, s.id) }) { Text("应用到今天") }
                                         OutlinedButton(onClick = {
                                             scope.launch {
@@ -286,4 +349,126 @@ fun ProgramScreen(onStartWorkout: () -> Unit, vm: ProgramViewModel = viewModel()
             }
         }
     }
+
+    if (showNewProgram) {
+        NewProgramDialog(
+            onDismiss = { showNewProgram = false },
+            onCreate = { name, count ->
+                vm.createProgram(name, count)
+                showNewProgram = false
+            }
+        )
+    }
+    addSessionId?.let { sid ->
+        val ex = pickedExercise
+        if (ex == null) {
+            ExerciseListDialog(
+                exercises = exercises,
+                onDismiss = { addSessionId = null },
+                onPick = { pickedExercise = it }
+            )
+        } else {
+            AddItemParamsDialog(
+                exercise = ex,
+                onDismiss = { pickedExercise = null; addSessionId = null },
+                onConfirm = { sets, repMin, repMax, rest, weight ->
+                    vm.addItem(sid, ex.id, sets, repMin, repMax, rest, weight)
+                    pickedExercise = null
+                    addSessionId = null
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun NewProgramDialog(onDismiss: () -> Unit, onCreate: (String, Int) -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var count by remember { mutableStateOf("4") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("新建方案") },
+        text = {
+            Column {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("方案名称") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = count, onValueChange = { count = it.filter { c -> c.isDigit() } }, label = { Text("每周几节(1-10)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = name.isNotBlank(), onClick = {
+                val c = count.toIntOrNull()?.coerceIn(1, 10) ?: 4
+                onCreate(name.trim(), c)
+            }) { Text("创建") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+    )
+}
+
+@Composable
+private fun ExerciseListDialog(
+    exercises: List<Exercise>,
+    onDismiss: () -> Unit,
+    onPick: (Exercise) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("选择要加入的动作") },
+        text = {
+            if (exercises.isEmpty()) { Text("动作库为空，请先到「动作」添加动作。") }
+            else {
+                androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                    items(exercises.size, key = { exercises[it].id }) { i ->
+                        val ex = exercises[i]
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().clickable { onPick(ex) }.padding(vertical = 10.dp)
+                        ) {
+                            Text("${ex.name} · ${ex.muscleGroup}/${ex.equipment}", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+    )
+}
+
+@Composable
+private fun AddItemParamsDialog(
+    exercise: Exercise,
+    onDismiss: () -> Unit,
+    onConfirm: (sets: Int, repMin: Int, repMax: Int, restSeconds: Int, weight: Double?) -> Unit
+) {
+    var sets by remember { mutableStateOf("3") }
+    var repMin by remember { mutableStateOf("8") }
+    var repMax by remember { mutableStateOf("12") }
+    var rest by remember { mutableStateOf("90") }
+    var weight by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(exercise.name) },
+        text = {
+            Column {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    com.fitplan.app.ui.common.NumberField(label = "组数", value = sets, onValueChange = { sets = it }, modifier = Modifier.weight(1f))
+                    com.fitplan.app.ui.common.NumberField(label = "最少次", value = repMin, onValueChange = { repMin = it }, modifier = Modifier.weight(1f))
+                    com.fitplan.app.ui.common.NumberField(label = "最多次", value = repMax, onValueChange = { repMax = it }, modifier = Modifier.weight(1f))
+                }
+                com.fitplan.app.ui.common.NumberField(label = "休息秒", value = rest, onValueChange = { rest = it }, modifier = Modifier.fillMaxWidth())
+                com.fitplan.app.ui.common.NumberField(label = "起始重量", value = weight, onValueChange = { weight = it.filter { c -> c.isDigit() || c == '.' } }, suffix = "kg", placeholder = "留空=自重", modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val s = sets.toIntOrNull() ?: 3
+                val mn = repMin.toIntOrNull() ?: 8
+                val mx = repMax.toIntOrNull() ?: 12
+                onConfirm(s, mn, mx, rest.toIntOrNull() ?: 90, weight.toDoubleOrNull())
+            }) { Text("加入") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+    )
 }

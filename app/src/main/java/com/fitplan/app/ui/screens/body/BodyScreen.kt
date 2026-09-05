@@ -132,7 +132,7 @@ fun BodyScreen(vm: BodyViewModel = viewModel()) {
 
             // 最新读数全览卡片
             item {
-                OverviewGrid(latestRecord = latestRecord)
+                OverviewGrid(records = records)
             }
 
             // 指标选择
@@ -219,12 +219,10 @@ fun BodyScreen(vm: BodyViewModel = viewModel()) {
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(r.timestamp.timestampToDateString(), fontWeight = FontWeight.Medium)
+                                val v = metricDef.extract(r)
                                 Text(
-                                    listOfNotNull(
-                                        r.weightKg?.let { "体重 ${it.smart()}kg" },
-                                        r.bodyFatPct?.let { "体脂 ${it.smart()}%" },
-                                        r.muscleKg?.let { "肌肉 ${it.smart()}kg" }
-                                    ).joinToString(" · ").ifBlank { "（未填体重/体脂/肌肉）" },
+                                    if (v != null) "${metricDef.label} ${v.smart()} ${metricDef.unit}"
+                                    else "（本次未记录 ${metricDef.label}）",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -281,12 +279,17 @@ fun BodyScreen(vm: BodyViewModel = viewModel()) {
 }
 
 @Composable
-private fun OverviewGrid(latestRecord: BodyRecord?) {
+private fun OverviewGrid(records: List<BodyRecord>) {
+    // 每个指标取“最近一次有值”的记录（避免最新记录某字段为空导致显示 --）
+    fun latest(key: String): Double? =
+        records.lastOrNull { MetricCatalog.byKey(key).extract(it) != null }
+            ?.let { MetricCatalog.byKey(key).extract(it) }
+
     val items = listOf(
-        "体重" to latestRecord?.weightKg?.let { "${it.smart()}kg" },
-        "体脂率" to latestRecord?.bodyFatPct?.let { "${it.smart()}%" },
-        "肌肉量" to latestRecord?.muscleKg?.let { "${it.smart()}kg" },
-        "BMI" to latestRecord?.bmi?.let { it.smart() }
+        "体重" to latest("weight")?.let { "${it.smart()}kg" },
+        "体脂率" to latest("bodyFat")?.let { "${it.smart()}%" },
+        "肌肉" to latest("muscle")?.let { "${it.smart()}%" },
+        "BMI" to latest("bmi")?.let { it.smart() }
     )
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items.forEach { (label, value) ->

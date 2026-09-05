@@ -138,13 +138,20 @@ fun WorkoutRunnerScreen(onExit: () -> Unit, vm: WorkoutRunnerViewModel = viewMod
     var restNonce by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
 
-    val current = exercises.indexOfFirst { setsDone[it] < exercises[it].sets }
+    fun firstIncomplete(): Int {
+        for (idx in exercises.indices) {
+            if (setsDone[idx] < exercises[idx].sets) return idx
+        }
+        return -1
+    }
+
+    val current = firstIncomplete()
     val currentEx = if (current in exercises.indices) exercises[current] else null
     val curSetNum = if (current >= 0) setsDone[current] + 1 else 0
 
     fun advance() {
         resting = false
-        val next = exercises.indexOfFirst { setsDone[it] < exercises[it].sets }
+        val next = firstIncomplete()
         if (next == -1) {
             finished = true
             return
@@ -191,7 +198,7 @@ fun WorkoutRunnerScreen(onExit: () -> Unit, vm: WorkoutRunnerViewModel = viewMod
         setsDone[i] = setsDone[i] + 1
         if (setsDone[i] >= ex.sets) vm.markCompleted(i)
         repsText = ""
-        val anyLeft = exercises.indexOfFirst { setsDone[it] < exercises[it].sets } != -1
+        val anyLeft = firstIncomplete() != -1
         if (!anyLeft) {
             finished = true
         } else {

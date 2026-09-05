@@ -64,7 +64,6 @@ import android.util.Base64
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import com.fitplan.app.FitPlanApp
 import com.fitplan.app.util.VisionApi
 import org.json.JSONObject
 import kotlinx.coroutines.flow.SharingStarted

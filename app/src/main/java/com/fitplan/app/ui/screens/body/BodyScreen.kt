@@ -219,10 +219,18 @@ fun BodyScreen(vm: BodyViewModel = viewModel()) {
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(r.timestamp.timestampToDateString(), fontWeight = FontWeight.Medium)
-                                val v = metricDef.extract(r)
+                                // 总体概览：一条读数显示其主要分项
+                                val parts = listOfNotNull(
+                                    r.weightKg?.let { "体重 ${it.smart()}kg" },
+                                    r.bodyFatPct?.let { "体脂 ${it.smart()}%" },
+                                    r.muscleKg?.let { "肌肉 ${it.smart()}%" },
+                                    r.boneKg?.let { "骨量 ${it.smart()}kg" },
+                                    r.waterPct?.let { "水分 ${it.smart()}%" },
+                                    r.bmi?.let { "BMI ${it.smart()}" },
+                                    r.bmrKcal?.let { "基础代谢 ${it.smart()}kcal" }
+                                )
                                 Text(
-                                    if (v != null) "${metricDef.label} ${v.smart()} ${metricDef.unit}"
-                                    else "（本次未记录 ${metricDef.label}）",
+                                    parts.joinToString(" · ").ifBlank { "（本次未记录指标）" },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

@@ -36,7 +36,7 @@ fun TrendChart(
     val accentColor = MaterialTheme.colorScheme.tertiary
     val emptyColor = MaterialTheme.colorScheme.onSurfaceVariant
 
-    var selected by remember { mutableStateOf<Int?>(null) }
+    val selState = remember { mutableStateOf<Int?>(null) }
 
     Canvas(
         modifier = modifier
@@ -47,7 +47,7 @@ fun TrendChart(
                 detectTapGestures { offset ->
                     if (n > 1) {
                         val idx = ((offset.x / size.width) * (n - 1)).roundToInt().coerceIn(0, n - 1)
-                        selected = idx
+                        selState.value = idx
                     }
                 }
             }
@@ -96,7 +96,7 @@ fun TrendChart(
         )
 
         // 点击选中的节点：放大 + 显示数值
-        selected?.let { idx ->
+        selState.value?.let { idx ->
             val x = xOf(idx)
             val y = yOf(points[idx].second)
             drawCircle(color = accentColor, radius = 11f, center = Offset(x, y))
